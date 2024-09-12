@@ -1,34 +1,44 @@
-"use client"; // This ensures that the component is a Client Component
-
-import {useState} from 'react';
+import { useState, useEffect } from 'react';
 import { Dropzone } from '@mantine/dropzone';
-import { Group, Text, Button, Input } from '@mantine/core';
+import { Group, Text } from '@mantine/core';
 import { IconUpload, IconX, IconFile } from '@tabler/icons-react';
 
-export function UploadComponent() {
+interface UploadComponentProps {
+  onFileProcessed: (code: string) => void;
+}
+
+export function UploadComponent({ onFileProcessed }: UploadComponentProps) {
   const [files, setFiles] = useState<File[]>([]);
-  const [githubUrl, setGithubUrl] = useState('');
 
   const handleDrop = (droppedFiles: File[]) => {
     setFiles(droppedFiles);
-    // Process the dropped files (send to FastAPI or other backend)
   };
 
-  const handleSubmit = () => {
-    // Handle form submission, either files or GitHub URL
-    if (files.length) {
-      console.log('Submitting files:', files);
-      // Send files to backend (FastAPI)
+  useEffect(() => {
+    if (files.length > 0) {
+      const file = files[0];
+      const fileReader = new FileReader();
+
+      fileReader.onload = () => {
+        const content = fileReader.result as string;
+        const notebookJson = JSON.parse(content);
+
+        // Extract Python code from notebook cells
+        const pythonCode = notebookJson.cells
+          .filter((cell: any) => cell.cell_type === 'code')
+          .map((cell: any) => cell.source.join(''))
+          .join('\n\n');
+
+        // Pass the extracted code to the parent component
+        onFileProcessed(pythonCode);
+      };
+
+      fileReader.readAsText(file);
     }
-    if (githubUrl) {
-      console.log('Submitting GitHub URL:', githubUrl);
-      // Send GitHub URL to backend (FastAPI)
-    }
-  };
+  }, [files, onFileProcessed]);
 
   return (
     <div>
-      {/* Dropzone for File Upload */}
       <Dropzone onDrop={handleDrop} accept={{ 'application/x-ipynb+json': ['.ipynb'] }}>
         <Group justify="center" gap="xl" mih={200} style={{ pointerEvents: 'none' }}>
           <Dropzone.Accept>
@@ -40,7 +50,6 @@ export function UploadComponent() {
           <Dropzone.Idle>
             <IconFile size={50} stroke={1.5} />
           </Dropzone.Idle>
-
           <div>
             <Text size="xl" inline>
               Drag your `.ipynb` file here or click to upload
@@ -51,19 +60,6 @@ export function UploadComponent() {
           </div>
         </Group>
       </Dropzone>
-
-      {/* Input for GitHub URL */}
-      <Input
-        placeholder="Enter GitHub Repo URL"
-        value={githubUrl}
-        onChange={(e) => setGithubUrl(e.currentTarget.value)}
-        mt="md"
-      />
-
-      {/* Submit Button */}
-      <Group justify="center" mt="md">
-        <Button onClick={handleSubmit}>Submit</Button>
-      </Group>
     </div>
   );
 }
